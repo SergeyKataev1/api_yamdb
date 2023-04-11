@@ -2,11 +2,12 @@
 import datetime
 import re
 
+from django.conf import settings
 from django.db.models import Avg
+from django.shortcuts import get_object_or_404
 from rest_framework import serializers
-from rest_framework.validators import UniqueValidator, UniqueTogetherValidator
-from reviews.models import Category, Genre, Title, GenreTitle, Review, Comment
-from reviews.models import CustomUser
+from rest_framework.validators import UniqueTogetherValidator, ValidationError
+from reviews.models import Category, Comment, CustomUser, Genre, Review, Title
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -89,6 +90,19 @@ class ReviewSerializer(serializers.ModelSerializer):
         model = Review
         fields = '__all__'
 
+    def validate(self, data):
+        request = self.context['request']
+        author = request.user
+        title_id = self.context['view'].kwargs['title_id']
+        title = get_object_or_404(Title, pk=title_id)
+        if (request.method == 'POST' and Review.objects.filter(
+            title=title, author=author
+        ).exists()):
+            raise ValidationError(
+                f"Пользователь {author.username} уже оставил отзыв к "
+                f"произведению {title.name}")
+        return data
+
 
 class CommentSerializer(serializers.ModelSerializer):
     """Класс-сериализатор для Comment."""
@@ -105,14 +119,6 @@ class CommentSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     """Создадим сериалайзер для регистрации пользователей"""
 
-    def validate_username(self, value):
-        """Проверяем username на соответствие паттерну."""
-        if not re.fullmatch(r'^[\w.@+-]+\Z', value):
-            raise serializers.ValidationError(
-                'username не соответствует паттерну: ^[\w.@+-]+\Z'
-            )
-        return value
-
     class Meta:
         fields = ("username", "email", "first_name",
                   "last_name", "bio", "role")
@@ -120,7 +126,8 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserEditSerializer(serializers.ModelSerializer):
-    
+    """Сериалайзер для самостоятельного редактирования пользователей"""
+
     class Meta:
         fields = ("username", "email", "first_name",
                   "last_name", "bio", "role")
@@ -129,12 +136,13 @@ class UserEditSerializer(serializers.ModelSerializer):
 
 
 class RegisterDataSerializer(serializers.ModelSerializer):
+    """Сериалайзер для регистрации пользователей"""
     username = serializers.CharField(
-        max_length=150,
+        max_length=settings.MAX_LENGHT_USERNAME,
         required=True,
     )
     email = serializers.EmailField(
-        max_length=254,
+        max_length=settings.MAX_LENGHT_EMAIL,
         required=True,
     )
 
@@ -144,25 +152,7 @@ class RegisterDataSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Username 'me' не валидно")
         if not re.fullmatch(r'^[\w.@+-]+\Z', value):
             raise serializers.ValidationError(
-                'username не соответствует паттерну: ^[\w.@+-]+\Z'
-            )
-        if (
-            CustomUser.objects.filter(username=value).exists()
-            and not CustomUser.objects.filter(
-                email=self.initial_data.get('email')
-            ).exists()
-        ):
-            raise serializers.ValidationError(
-                'Данный username использует другую почту.'
-            )
-        if (
-            not CustomUser.objects.filter(username=value).exists()
-            and CustomUser.objects.filter(
-                email=self.initial_data.get('email')
-            ).exists()
-        ):
-            raise serializers.ValidationError(
-                'Данный email использует другой username.'
+                r'username не соответствует паттерну: ^[\w.@+-]+\Z'
             )
         return value
 

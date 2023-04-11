@@ -1,5 +1,5 @@
-from pathlib import Path
 from datetime import timedelta
+from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -132,3 +132,8 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 STATICFILES_DIRS = ((BASE_DIR / 'static/'),)
+
+# Максимальное количество символов username
+MAX_LENGHT_USERNAME = 150
+# Максимальное количество символов email
+MAX_LENGHT_EMAIL = 254
