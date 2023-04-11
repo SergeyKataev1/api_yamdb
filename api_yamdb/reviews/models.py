@@ -1,11 +1,17 @@
 """Проект спринта 10: модуль управления моделями приложения reviews."""
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models.constraints import UniqueConstraint
-from rest_framework import status
-from rest_framework.exceptions import ValidationError
+
 from .validators import validate_username, validate_year
+
+
+def role_max_lenght(role_list):
+    cases = []
+    for value in role_list:
+        cases.append(value[0])
+    return len(max(cases, key=len))
 
 
 class CustomUser(AbstractUser):
@@ -18,19 +24,22 @@ class CustomUser(AbstractUser):
         (USER, 'Пользователь'),
         (MODERATOR, 'Модератор'),
     ]
+
     username = models.CharField(
-        max_length=150,
+        max_length=settings.MAX_LENGHT_USERNAME,
         verbose_name='Имя пользователя',
         help_text='Ваше имя на сайте',
         unique=True,
         validators=[validate_username],
     )
     email = models.EmailField(
+        max_length=settings.MAX_LENGHT_EMAIL,
         verbose_name='Электронная почта',
-        unique=True, max_length=253)
+        unique=True,
+    )
     role = models.CharField(
         verbose_name='статус',
-        max_length=15,
+        max_length=role_max_lenght(CHOICES_ROLE),
         choices=CHOICES_ROLE,
         default=USER,
     )
@@ -50,13 +59,13 @@ class CustomUser(AbstractUser):
                                  blank=True,
                                  )
     CONCLUSION_STR = (
-        'Пользователь: {username}, '
-        'Имя: {first_name}, '
-        'Фамилия: {last_name}, '
+        'Пользователь: {username:.20}, '
+        'Имя: {first_name:.20}, '
+        'Фамилия: {last_name:.20}, '
         'email: {email}, '
-        'Статус: {role}'
-        'О пользователе: {bio}, '
-        'pk : {pk}'
+        'Статус: {role}, '
+        'О пользователе: {bio:.20}, '
+        'pk: {pk}'
     )
 
     @property
@@ -65,7 +74,7 @@ class CustomUser(AbstractUser):
 
     @property
     def is_admin(self):
-        return self.role == self.ADMIN
+        return self.role == self.ADMIN or self.is_superuser or self.is_staff
 
     class Meta:
         verbose_name = 'Пользоваетель'
@@ -73,7 +82,7 @@ class CustomUser(AbstractUser):
 
     def __str__(self):
         return self.CONCLUSION_STR.format(
-            bio=self.bio[:20],
+            bio=self.bio,
             username=self.username,
             first_name=self.first_name,
             last_name=self.last_name,
@@ -83,22 +92,44 @@ class CustomUser(AbstractUser):
         )
 
 
-class Category(models.Model):
-    """Класс управления данными категорий."""
+class CategoryGenreBaseModel(models.Model):
+    """Родительский класс для Genre и Category"""
+
+    current_verbose_name_of_name = "name"
+    current_verbose_name_of_slug = "slug"
+    current_help_text_of_name = "help text name"
+    current_help_text_of_slug = "help text slug"
     name = models.CharField(max_length=256,
-                            verbose_name='Название категории',
-                            help_text='Cформулируйте наименование категории',
+                            verbose_name=current_verbose_name_of_name,
+                            help_text=current_help_text_of_name,
                             blank=False
                             )
     slug = models.SlugField(max_length=50, unique=True,
-                            verbose_name='Идентификатор категории',
-                            help_text='Присвойте категории уникальный тег',
+                            verbose_name=current_verbose_name_of_slug,
+                            help_text=current_help_text_of_slug,
                             blank=False
                             )
 
     CONCLUSION_STR = (
-        'У категории: {name}, Идентификатор {slug}'
+        f'{name.verbose_name}: {name}, имеет {slug.verbose_name}: {slug}'
     )
+
+    class Meta:
+        abstract = True
+
+    def __str__(self):
+        return self.CONCLUSION_STR.format(
+            name=self.name,
+            slug=self.slug,
+        )
+
+
+class Category(CategoryGenreBaseModel):
+    """Класс управления данными категорий."""
+    current_verbose_name_of_name = "Категория"
+    current_verbose_name_of_slug = "идентификатор категории"
+    current_help_text_of_name = "Введите название категории"
+    current_help_text_of_slug = "Введите идентификатор категороии"
 
     class Meta:
         verbose_name = 'Категория'
@@ -111,20 +142,12 @@ class Category(models.Model):
         )
 
 
-class Genre(models.Model):
+class Genre(CategoryGenreBaseModel):
     """Класс управления данными жанров."""
-    name = models.CharField(max_length=256,
-                            verbose_name='Название жанра',
-                            help_text='Cформулируйте наименование жанра',
-                            blank=False)
-    slug = models.SlugField(unique=True, max_length=50,
-                            verbose_name='Идентификатор жанра',
-                            help_text='Присвойте жанру уникальный тег',
-                            blank=False)
-
-    CONCLUSION_STR = (
-        'У жанра: {name}, Идентификатор {slug}'
-    )
+    current_verbose_name_of_name = "Жанр"
+    current_verbose_name_of_slug = "идентификатор жанра"
+    current_help_text_of_name = "Введите название жанра"
+    current_help_text_of_slug = "Введите идентификатор жанра"
 
     class Meta:
         verbose_name = 'Жанр'
@@ -174,7 +197,7 @@ class Title(models.Model):
     )
 
     CONCLUSION_STR = (
-        'Произведение: {name}, '
+        'Произведение: {name:.20}, '
         'Год публикации: {year}, '
         'Категория: {category}, '
     )
@@ -208,26 +231,39 @@ class GenreTitle(models.Model):
         )
 
 
-class Review(models.Model):
-    """Класс управления данными отзывов к произведениям."""
+class ReviewCommentBaseModel(models.Model):
+    """Базовый класс для Rewiew и Comment"""
+
     author = models.ForeignKey(
         CustomUser,
-        verbose_name='Автор отзыва',
+        verbose_name='Автор',
         on_delete=models.CASCADE,
-        related_name='reviews',
         blank=False
     )
+    text = models.TextField(
+        verbose_name='Текст',
+        help_text='Введите текст',
+        blank=False
+    )
+    pub_date = models.DateTimeField(
+        verbose_name='Дата публикации',
+        auto_now_add=True,
+        db_index=True
+    )
+
+    class Meta:
+        abstract = True
+
+
+class Review(ReviewCommentBaseModel):
+    """Класс управления данными отзывов к произведениям."""
+
     title = models.ForeignKey(
         Title,
         verbose_name='Произведение для отзыва',
         on_delete=models.CASCADE,
         related_name='reviews',
         blank=False)
-    text = models.TextField(
-        verbose_name='Текст отзыва',
-        help_text='Введите текст отзыва',
-        blank=False
-    )
     score = models.PositiveSmallIntegerField(
         verbose_name='Оценка',
         help_text='Оцените произведение',
@@ -237,15 +273,10 @@ class Review(models.Model):
             MinValueValidator(1)
         ]
     )
-    pub_date = models.DateTimeField(
-        verbose_name='Дата публикации',
-        auto_now_add=True,
-        db_index=True
-    )
     CONCLUSION_STR = (
         'Произведение: {title}, '
         'Автор отзыва: {author}, '
-        'Отзыв: {text}, '
+        'Отзыв: {text:.20}, '
         'Оценка: {score}, '
         'Дата отзыва: {pub_date}, '
     )
@@ -254,27 +285,26 @@ class Review(models.Model):
         default_related_name = 'reviews'
         verbose_name = 'Отзыв'
         verbose_name_plural = 'Отзывы'
-        unique_together = ('title', 'author', )
+        constraints = [
+            models.UniqueConstraint(
+                fields=('title', 'author',),
+                name='unique_title',
+            )
+        ]
 
     def __str__(self):
         return self.CONCLUSION_STR.format(
             author=self.author,
             title=self.title,
-            text=self.text[:20],
+            text=self.text,
             scope=self.score,
             pube_date=self.pub_date,
         )
 
 
-class Comment(models.Model):
+class Comment(ReviewCommentBaseModel):
     """Класс управления данными комментариев к отзывам."""
-    author = models.ForeignKey(
-        CustomUser,
-        verbose_name='Автор комментария',
-        on_delete=models.CASCADE,
-        related_name='comments',
-        blank=False
-    )
+
     review = models.ForeignKey(
         Review,
         verbose_name='Комментриуемый отзыв',
@@ -282,17 +312,11 @@ class Comment(models.Model):
         blank=False,
         related_name='comments'
     )
-    text = models.TextField(
-        verbose_name='Текст комментария',
-        help_text='Введите текст комментария',
-        blank=False,
-    )
-    pub_date = models.DateTimeField(
-        'Дата публикации', auto_now_add=True, db_index=True)
+
     CONCLUSION_STR = (
         'Автор комментария: {author}, '
         'Коменируемый отзыв: {rewiew}'
-        'Комментарий: {text}, '
+        'Комментарий: {text:.20}, '
         'Дата комментария: {pub_date}, '
     )
 
@@ -305,6 +329,6 @@ class Comment(models.Model):
         return self.CONCLUSION_STR.format(
             author=self.author,
             rewiew=self.review,
-            text=self.text[:20],
+            text=self.text,
             pube_date=self.pub_date,
         )

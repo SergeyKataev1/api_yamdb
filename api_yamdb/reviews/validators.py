@@ -1,20 +1,28 @@
+import re
+
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-import re
-from django.utils.translation import gettext_lazy
+
+
+def forbidden_symbols(username):
+    right_list = re.findall(r'[\w.@+-]+', username)
+    bad_chars = username
+    for item in right_list:
+        bad_chars = bad_chars.replace(item, "")
+    return bad_chars
 
 
 def validate_year(value):
     if value > timezone.now().year:
-        raise ValidationError(
-            ('Год %(value)s больше текущего!'),
-            params={'value': value},
-        )
+        raise ValidationError(f'Год {value} больше текущего!')
+
 
 def validate_username(value):
-    if value.lower() == 'me':
+    if value == 'me':
+        raise ValidationError(f'{value} служебное имя!')
+    if not re.fullmatch(r'[\w.@+-]+\Z', value):
         raise ValidationError(
-            gettext_lazy(f'{value} служебное имя!')
+            f'Имя пользователя {value} содержит запрещенные символы - '
+            f'{forbidden_symbols(value)}. '
+            f'Нельзя использовать \/|''" и прочие подобные символы.'
         )
-    if not re.match(r'[\w.@+-]+\Z', value):
-        raise ValidationError(gettext_lazy(f'{value} содержит запрещенные символы!'))
