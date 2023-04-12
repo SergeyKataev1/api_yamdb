@@ -7,7 +7,7 @@ from django.db import models
 from .validators import validate_username, validate_year
 
 
-def role_max_lenght(role_list):
+def role_max_length(role_list):
     cases = []
     for value in role_list:
         cases.append(value[0])
@@ -26,20 +26,20 @@ class CustomUser(AbstractUser):
     ]
 
     username = models.CharField(
-        max_length=settings.MAX_LENGHT_USERNAME,
+        max_length=settings.MAX_LENGTH_USERNAME,
         verbose_name='Имя пользователя',
         help_text='Ваше имя на сайте',
         unique=True,
         validators=[validate_username],
     )
     email = models.EmailField(
-        max_length=settings.MAX_LENGHT_EMAIL,
+        max_length=settings.MAX_LENGTH_EMAIL,
         verbose_name='Электронная почта',
         unique=True,
     )
     role = models.CharField(
         verbose_name='статус',
-        max_length=role_max_lenght(CHOICES_ROLE),
+        max_length=role_max_length(CHOICES_ROLE),
         choices=CHOICES_ROLE,
         default=USER,
     )
@@ -77,7 +77,7 @@ class CustomUser(AbstractUser):
         return self.role == self.ADMIN or self.is_superuser or self.is_staff
 
     class Meta:
-        verbose_name = 'Пользоваетель'
+        verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
 
     def __str__(self):
@@ -99,12 +99,12 @@ class CategoryGenreBaseModel(models.Model):
     current_verbose_name_of_slug = "slug"
     current_help_text_of_name = "help text name"
     current_help_text_of_slug = "help text slug"
-    name = models.CharField(max_length=256,
+    name = models.CharField(max_length=settings.MAX_LENGTH_NAME,
                             verbose_name=current_verbose_name_of_name,
                             help_text=current_help_text_of_name,
                             blank=False
                             )
-    slug = models.SlugField(max_length=50, unique=True,
+    slug = models.SlugField(max_length=settings.MAX_LENGTH_SLUG, unique=True,
                             verbose_name=current_verbose_name_of_slug,
                             help_text=current_help_text_of_slug,
                             blank=False
@@ -129,7 +129,7 @@ class Category(CategoryGenreBaseModel):
     current_verbose_name_of_name = "Категория"
     current_verbose_name_of_slug = "идентификатор категории"
     current_help_text_of_name = "Введите название категории"
-    current_help_text_of_slug = "Введите идентификатор категороии"
+    current_help_text_of_slug = "Введите идентификатор категории"
 
     class Meta:
         verbose_name = 'Категория'
@@ -163,7 +163,7 @@ class Genre(CategoryGenreBaseModel):
 class Title(models.Model):
     """Класс управления данными произведений."""
     name = models.CharField(
-        max_length=256,
+        max_length=settings.MAX_LENGTH_NAME,
         verbose_name='Названием',
         help_text='Укажите название произведения',
         unique=True,
@@ -307,7 +307,7 @@ class Comment(ReviewCommentBaseModel):
 
     review = models.ForeignKey(
         Review,
-        verbose_name='Комментриуемый отзыв',
+        verbose_name='Комментируемый отзыв',
         on_delete=models.CASCADE,
         blank=False,
         related_name='comments'
@@ -315,7 +315,7 @@ class Comment(ReviewCommentBaseModel):
 
     CONCLUSION_STR = (
         'Автор комментария: {author}, '
-        'Коменируемый отзыв: {rewiew}'
+        'Комментируемый отзыв: {review}'
         'Комментарий: {text:.20}, '
         'Дата комментария: {pub_date}, '
     )

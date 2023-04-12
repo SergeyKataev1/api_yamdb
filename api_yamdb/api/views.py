@@ -2,6 +2,7 @@
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
+from django.db.models import Avg
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, permissions, status, viewsets
@@ -23,7 +24,7 @@ from .serializers import (CategorySerializer, CommentSerializer,
                           UserSerializer)
 
 
-class CateroryOrGenreViewSet(
+class CategoryViewSet(
     mixins.CreateModelMixin,
     mixins.ListModelMixin,
     mixins.DestroyModelMixin,
@@ -39,7 +40,7 @@ class CateroryOrGenreViewSet(
     search_fields = ('name', )
 
 
-class GenreViewSet(CateroryOrGenreViewSet):
+class GenreViewSet(CategoryViewSet):
     """Класс-вьюсет для Genre."""
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
@@ -47,7 +48,7 @@ class GenreViewSet(CateroryOrGenreViewSet):
 
 class TitleViewSet(ModelViewSet):
     """Классы-вьюсет для Title."""
-    queryset = Title.objects.all()
+    queryset = Title.objects.annotate(rating=Avg('reviews__score'))
     permission_classes = (IsAdminOrReadOnly, )
     pagination_class = PageNumberPagination
     filter_backends = (DjangoFilterBackend, )
