@@ -1,9 +1,7 @@
 """Проект спринта 10: модуль сериалайзер приложения Api."""
-import datetime
 import re
 
 from django.conf import settings
-from django.db.models import Avg
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator, ValidationError
@@ -32,17 +30,14 @@ class TitleGetSerializer(serializers.ModelSerializer):
         many=True
     )
     category = CategorySerializer()
-    rating = serializers.SerializerMethodField()
-
-    def get_rating(self, obj):
-        rating = obj.reviews.aggregate(Avg('score')).get('score__avg')
-        return rating if not rating else round(rating, 0)
+    rating = serializers.IntegerField(default=0)
 
     class Meta:
         fields = ('id', 'name', 'year', 'rating', 'description',
                   'genre', 'category',)
         model = Title
-        read_only_fields = ('id', 'pub_date', 'rating',)
+        read_only_fields = ('id', 'name', 'year', 'rating', 'description',
+                            'genre', 'category',)
 
 
 class TitleSerializer(serializers.ModelSerializer):
@@ -59,9 +54,8 @@ class TitleSerializer(serializers.ModelSerializer):
 
     class Meta:
         fields = ('id', 'name', 'year', 'description',
-                  'genre', 'category', )
+                  'genre', 'category')
         model = Title
-        read_only_fields = ('id', 'pub_date',)
         validators = (
             UniqueTogetherValidator(
                 queryset=Title.objects.all(),
@@ -69,14 +63,6 @@ class TitleSerializer(serializers.ModelSerializer):
                 message=('Запрещено присваивать повторные жанры')
             ),
         )
-
-    def validate_year(self, value):
-        """Год выпуска не может быть больше текущего."""
-        if value > datetime.datetime.now().year:
-            raise serializers.ValidationError(
-                "Год выпуска не может быть больше текущего"
-            )
-        return value
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -88,7 +74,8 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Review
-        fields = '__all__'
+        fields = ('id', 'author', 'title', 'text', 'score', 'pub_date',)
+        read_only_fields = ('id', 'author', 'title', 'pub_date',)
 
     def validate(self, data):
         request = self.context['request']
@@ -113,7 +100,8 @@ class CommentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comment
-        fields = '__all__'
+        fields = ('id', 'author', 'review', 'text', 'pub_date',)
+        read_only_fields = ('id', 'author', 'review', 'pub_date',)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -138,11 +126,11 @@ class UserEditSerializer(serializers.ModelSerializer):
 class RegisterDataSerializer(serializers.ModelSerializer):
     """Сериалайзер для регистрации пользователей"""
     username = serializers.CharField(
-        max_length=settings.MAX_LENGHT_USERNAME,
+        max_length=settings.MAX_LENGTH_USERNAME,
         required=True,
     )
     email = serializers.EmailField(
-        max_length=settings.MAX_LENGHT_EMAIL,
+        max_length=settings.MAX_LENGTH_EMAIL,
         required=True,
     )
 

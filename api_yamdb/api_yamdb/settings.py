@@ -134,6 +134,10 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = ((BASE_DIR / 'static/'),)
 
 # Максимальное количество символов username
-MAX_LENGHT_USERNAME = 150
+MAX_LENGTH_USERNAME = 150
 # Максимальное количество символов email
-MAX_LENGHT_EMAIL = 254
+MAX_LENGTH_EMAIL = 254
+# Максимальное количество символов name
+MAX_LENGTH_NAME = 256
+# Максимальное количество символов slug
+MAX_LENGTH_SLUG = 50
