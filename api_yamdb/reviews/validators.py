@@ -9,7 +9,7 @@ def forbidden_symbols(username):
     return ''.join(re.split(r'[\w.@+-]+', username))
 
 
-def validate_year(value):
+def model_validate_year(value):
     if value > timezone.now().year:
         raise ValidationError(
             f'Произведения из будущего {value}г., в текущем '
@@ -17,7 +17,7 @@ def validate_year(value):
     return value
 
 
-def validate_username(value):
+def model_validate_username(value):
     if value == 'me':
         raise ValidationError(f'{value} служебное имя!')
     else:

@@ -33,10 +33,10 @@ class NameSlugBaseViewSet(
 ):
     """Абстрактный класс-вьюсет, база для классификации свойств предмета."""
     lookup_field = 'slug'
-    permission_classes = (IsAdminOrReadOnly, )
+    permission_classes = (IsAdminOrReadOnly,)
     pagination_class = PageNumberPagination
     filter_backends = (filters.SearchFilter,)
-    search_fields = ('name', )
+    search_fields = ('name',)
 
 
 class CategoryViewSet(NameSlugBaseViewSet):
@@ -54,11 +54,22 @@ class GenreViewSet(NameSlugBaseViewSet):
 class TitleViewSet(ModelViewSet):
     """Классы-вьюсет для Title."""
     queryset = Title.objects.annotate(rating=Avg('reviews__score'))
-    permission_classes = (IsAdminOrReadOnly, )
+    permission_classes = (IsAdminOrReadOnly,)
     pagination_class = PageNumberPagination
-    filter_backends = (DjangoFilterBackend, )
+    # category - фильтрует по полю slug категории
+    # genre - фильтрует по полю slug жанра
+    # name - фильтрует по названию произведения
+    # year - фильтрует по году
+    # GET http://127.0.0.1:8000/api/v1/titles/?category=movie&year=1994
+    # GET http://127.0.0.1:8000/api/v1/titles/?genre=tale&category=book
+    # !!!!! А нужна настройка набора объектов.
+    # Что это?????
+    filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilter
-    ordering_fields = ['name', 'year']
+    # настройка сортировки
+    # GET http://127.0.0.1:8000/api/v1/titles/?ordering=-rating # сортировка по убыванию
+    # GET http://127.0.0.1:8000/api/v1/titles/?ordering=-rating # сортировка по возрастанию
+    ordering_fields = ['name', 'year', 'rating']
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -69,7 +80,7 @@ class TitleViewSet(ModelViewSet):
 class ReviewViewSet(ModelViewSet):
     """Классы-вьюсет для Review."""
     serializer_class = ReviewSerializer
-    permission_classes = (IsAuthorIsAdminIsModeratorOrReadOnly, )
+    permission_classes = (IsAuthorIsAdminIsModeratorOrReadOnly,)
     pagination_class = PageNumberPagination
 
     def get_title(self):
@@ -85,7 +96,7 @@ class ReviewViewSet(ModelViewSet):
 class CommentViewSet(ModelViewSet):
     """Классы-вьюсет для Comment."""
     serializer_class = CommentSerializer
-    permission_classes = (IsAuthorIsAdminIsModeratorOrReadOnly, )
+    permission_classes = (IsAuthorIsAdminIsModeratorOrReadOnly,)
     pagination_class = PageNumberPagination
 
     def get_review(self):
@@ -105,40 +116,41 @@ def signup(request):
     и повторное получение пин-кода"""
     serializer = RegisterDataSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    username = serializer.validated_data['username'],
+    username = serializer.validated_data['username']
+    current_user = CustomUser.objects.filter(username=username)
     email = serializer.validated_data['email']
-    curent_user = CustomUser.objects.filter(username=username[0])
-    curent_email = CustomUser.objects.filter(email=email)
+    current_email = CustomUser.objects.filter(email=email)
     try:
-        if curent_user.exists() and not curent_email.exists():
+        if current_user.exists() and not current_email.exists():
             raise ValidationError(
                 'Данный username использует другой email.'
             )
-        if curent_email.exists() and not curent_user.exists():
+        if current_email.exists() and not current_user.exists():
             raise ValidationError(
                 'Данный email использует другой username.'
             )
         if not CustomUser.objects.filter(
-            username=username[0], email=email
+                username=username, email=email
         ).exists():
-            # Если пары username и email нет в базе то сохранем
+            # Если пары username и email нет в базе, то сохраняем
             serializer.save()
         # Получаем объект CustomUser с данными пользователя
         user = get_object_or_404(
             CustomUser,
             username=serializer.validated_data['username']
         )
-        # Генерируем код подтверждения
-        confirmation_code = default_token_generator.make_token(user)
-        send_mail(
-            subject='YaMDb registration',
-            message=f'Your confirmation code: {confirmation_code}',
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-        )
-        return Response(serializer.data, status=status.HTTP_200_OK)
     except IntegrityError:
         raise ValidationError('username или email уже занят')
+
+    # Генерируем код подтверждения
+    confirmation_code = default_token_generator.make_token(user)
+    send_mail(
+        subject='YaMDb registration',
+        message=f'Your confirmation code: {confirmation_code}',
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+    )
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -153,7 +165,7 @@ def get_jwt_token(request):
     )
 
     if default_token_generator.check_token(
-        user, serializer.validated_data['confirmation_code']
+            user, serializer.validated_data['confirmation_code']
     ):
         token = AccessToken.for_user(user)
         return Response({'token': str(token)}, status=status.HTTP_200_OK)
@@ -169,7 +181,7 @@ class UserViewSet(viewsets.ModelViewSet):
     pagination_class = PageNumberPagination
     permission_classes = (IsAdmin,)
     filter_backends = (filters.SearchFilter,)
-    search_fields = ('username', )
+    search_fields = ('username',)
     http_method_names = [
         'get', 'post', 'patch', 'delete', 'head', 'options', 'trace'
     ]

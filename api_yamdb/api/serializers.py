@@ -2,10 +2,12 @@
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
-from rest_framework.validators import (UniqueTogetherValidator,
-                                       UniqueValidator, ValidationError)
+from rest_framework.validators import (
+    UniqueTogetherValidator,
+    UniqueValidator, ValidationError
+)
 from reviews.models import Category, Comment, CustomUser, Genre, Review, Title
-from reviews.validators import validate_username, validate_year
+from reviews.validators import model_validate_username, model_validate_year
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -33,8 +35,8 @@ class TitleGetSerializer(serializers.ModelSerializer):
     rating = serializers.IntegerField(default=0)
 
     class Meta:
-        fields = ['id', 'name', 'year', 'rating', 'description',
-                  'genre', 'category']
+        fields = ('id', 'name', 'year', 'rating', 'description',
+                  'genre', 'category',)
         model = Title
         read_only_fields = fields
 
@@ -50,7 +52,7 @@ class TitleSerializer(serializers.ModelSerializer):
         queryset=Category.objects.all(),
         slug_field='slug'
     )
-    year = serializers.IntegerField(validators=[validate_year, ])
+    year = serializers.IntegerField(validators=[model_validate_year, ])
 
     class Meta:
         fields = ('id', 'name', 'year', 'description',
@@ -81,8 +83,8 @@ class ReviewSerializer(serializers.ModelSerializer):
         request = self.context['request']
         if request.method == 'POST' and Review.objects.filter(
                 title=get_object_or_404(
-                Title,
-                pk=self.context['view'].kwargs['title_id']),
+                    Title,
+                    pk=self.context['view'].kwargs['title_id']),
                 author=request.user
         ).exists():
             raise ValidationError(
@@ -109,15 +111,27 @@ class UserSerializer(serializers.ModelSerializer):
     username = serializers.CharField(
         max_length=settings.MAX_LENGTH_USERNAME,
         required=True,
-        validators=[
+        # При переносе валидатора в общий валидатор или валидатор поля возникают ошибки pytest:
+        # >       return Database.Cursor.execute(self, query, params)
+        # E       sqlite3.IntegrityError: UNIQUE constraint failed: reviews_customuser.username
+        # или
+        # E       AssertionError: Проверьте, что при обработке POST-запроса к `/api/v1/users/` содержание поля `username` проверяется на соответствие паттерну, указанному в спецификации: ^[\w.@+-]+\z
+        # E       assert 201 == <HTTPStatus.BAD_REQUEST: 400>
+        # E         +201
+        # E         -<HTTPStatus.BAD_REQUEST: 400>
+        validators=(
             UniqueValidator(queryset=CustomUser.objects.all()),
-            validate_username
-        ]
+            model_validate_username,
+        ),
     )
+
+    # def validate_username(self, value):
+    #     model_validate_username(value)
+    #     return value
 
     class Meta:
         fields = ("username", "email", "first_name",
-                  "last_name", "bio", "role")
+                  "last_name", "bio", "role",)
         model = CustomUser
 
 
@@ -133,13 +147,16 @@ class RegisterDataSerializer(serializers.Serializer):
     username = serializers.CharField(
         max_length=settings.MAX_LENGTH_USERNAME,
         required=True,
-        validators=[validate_username, ]
+        validators=[model_validate_username, ]
     )
     email = serializers.EmailField(
         max_length=settings.MAX_LENGTH_EMAIL,
         required=True,
     )
 
+    # !!! без этого метода возникает массовая ошибка pytest
+    # > raise NotImplementedError('`create()` must be implemented.')
+    # E NotImplementedError: `create()` must be implemented.
     def create(self, validated_data):
         return CustomUser.objects.create(**validated_data)
 
@@ -153,7 +170,7 @@ class TokenSerializer(serializers.Serializer):
     username = serializers.CharField(
         max_length=settings.MAX_LENGTH_USERNAME,
         required=True,
-        validators=[validate_username, ]
+        validators=(model_validate_username,)
     )
     confirmation_code = serializers.CharField(
         required=True, max_length=settings.MAX_CONFIRMATION_CODE

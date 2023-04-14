@@ -28,7 +28,7 @@ class Migration(migrations.Migration):
                 ('is_staff', models.BooleanField(default=False, help_text='Designates whether the user can log into this admin site.', verbose_name='staff status')),
                 ('is_active', models.BooleanField(default=True, help_text='Designates whether this user should be treated as active. Unselect this instead of deleting accounts.', verbose_name='active')),
                 ('date_joined', models.DateTimeField(default=django.utils.timezone.now, verbose_name='date joined')),
-                ('username', models.CharField(help_text='Ваше имя на сайте', max_length=150, unique=True, validators=[reviews.validators.validate_username], verbose_name='Имя пользователя')),
+                ('username', models.CharField(help_text='Ваше имя на сайте', max_length=150, unique=True, validators=[reviews.validators.model_validate_username], verbose_name='Имя пользователя')),
                 ('email', models.EmailField(max_length=253, unique=True, verbose_name='Электронная почта')),
                 ('role', models.CharField(choices=[('admin', 'Администратор'), ('user', 'Пользователь'), ('moderator', 'Модератор')], default='user', max_length=15, verbose_name='статус')),
                 ('bio', models.TextField(blank=True, help_text='Введите информацию про себя', verbose_name='О себе')),
@@ -81,7 +81,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('name', models.CharField(help_text='Укажите название произведения', max_length=256, unique=True, verbose_name='Названием')),
-                ('year', models.PositiveSmallIntegerField(help_text='Укажите год выпуска', validators=[reviews.validators.validate_year], verbose_name='Год выпуска')),
+                ('year', models.PositiveSmallIntegerField(help_text='Укажите год выпуска', validators=[reviews.validators.model_validate_year], verbose_name='Год выпуска')),
                 ('description', models.TextField(blank=True, help_text='Опишите произведение', verbose_name='Описание')),
                 ('category', models.ForeignKey(blank=True, help_text='Выберите категорию, к которой относится произведение', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='titles', to='reviews.category', verbose_name='Категория')),
                 ('genre', models.ManyToManyField(related_name='title', through='reviews.GenreTitle', to='reviews.Genre', verbose_name='жанр')),
