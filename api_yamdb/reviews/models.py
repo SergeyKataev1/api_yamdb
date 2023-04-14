@@ -7,13 +7,6 @@ from django.db import models
 from .validators import validate_username, validate_year
 
 
-def role_max_length(role_list):
-    cases = []
-    for value in role_list:
-        cases.append(value[0])
-    return len(max(cases, key=len))
-
-
 class CustomUser(AbstractUser):
     """Модель пользователя."""
     ADMIN = 'admin'
@@ -24,7 +17,7 @@ class CustomUser(AbstractUser):
         (USER, 'Пользователь'),
         (MODERATOR, 'Модератор'),
     ]
-
+    MAX_LEN_ROLE = max(len(role[0]) for role in CHOICES_ROLE)
     username = models.CharField(
         max_length=settings.MAX_LENGTH_USERNAME,
         verbose_name='Имя пользователя',
@@ -39,7 +32,7 @@ class CustomUser(AbstractUser):
     )
     role = models.CharField(
         verbose_name='статус',
-        max_length=role_max_length(CHOICES_ROLE),
+        max_length=MAX_LEN_ROLE,
         choices=CHOICES_ROLE,
         default=USER,
     )
@@ -74,7 +67,7 @@ class CustomUser(AbstractUser):
 
     @property
     def is_admin(self):
-        return self.role == self.ADMIN or self.is_superuser or self.is_staff
+        return self.role == self.ADMIN or self.is_staff
 
     class Meta:
         verbose_name = 'Пользователь'
@@ -92,26 +85,22 @@ class CustomUser(AbstractUser):
         )
 
 
-class CategoryGenreBaseModel(models.Model):
+class NameSlugBaseModel(models.Model):
     """Родительский класс для Genre и Category"""
 
-    current_verbose_name_of_name = "name"
-    current_verbose_name_of_slug = "slug"
-    current_help_text_of_name = "help text name"
-    current_help_text_of_slug = "help text slug"
     name = models.CharField(max_length=settings.MAX_LENGTH_NAME,
-                            verbose_name=current_verbose_name_of_name,
-                            help_text=current_help_text_of_name,
+                            verbose_name='название',
+                            help_text="Введите название",
                             blank=False
                             )
     slug = models.SlugField(max_length=settings.MAX_LENGTH_SLUG, unique=True,
-                            verbose_name=current_verbose_name_of_slug,
-                            help_text=current_help_text_of_slug,
+                            verbose_name='идентификатор',
+                            help_text='Введите идентификатор',
                             blank=False
                             )
 
     CONCLUSION_STR = (
-        f'{name.verbose_name}: {name}, имеет {slug.verbose_name}: {slug}'
+        f'{name}, имеет идентификатор: {slug}'
     )
 
     class Meta:
@@ -124,40 +113,20 @@ class CategoryGenreBaseModel(models.Model):
         )
 
 
-class Category(CategoryGenreBaseModel):
+class Category(NameSlugBaseModel):
     """Класс управления данными категорий."""
-    current_verbose_name_of_name = "Категория"
-    current_verbose_name_of_slug = "идентификатор категории"
-    current_help_text_of_name = "Введите название категории"
-    current_help_text_of_slug = "Введите идентификатор категории"
 
     class Meta:
         verbose_name = 'Категория'
         verbose_name_plural = 'Категории'
 
-    def __str__(self):
-        return self.CONCLUSION_STR.format(
-            name=self.name,
-            slug=self.slug,
-        )
 
-
-class Genre(CategoryGenreBaseModel):
+class Genre(NameSlugBaseModel):
     """Класс управления данными жанров."""
-    current_verbose_name_of_name = "Жанр"
-    current_verbose_name_of_slug = "идентификатор жанра"
-    current_help_text_of_name = "Введите название жанра"
-    current_help_text_of_slug = "Введите идентификатор жанра"
 
     class Meta:
         verbose_name = 'Жанр'
         verbose_name_plural = 'Жанры'
-
-    def __str__(self):
-        return self.CONCLUSION_STR.format(
-            name=self.name,
-            slug=self.slug,
-        )
 
 
 class Title(models.Model):
@@ -166,10 +135,10 @@ class Title(models.Model):
         max_length=settings.MAX_LENGTH_NAME,
         verbose_name='Названием',
         help_text='Укажите название произведения',
-        unique=True,
+        # unique=True,
         blank=False,
     )
-    year = models.PositiveSmallIntegerField(
+    year = models.IntegerField(
         verbose_name='Год выпуска',
         help_text='Укажите год выпуска',
         validators=[validate_year],
@@ -206,6 +175,7 @@ class Title(models.Model):
         default_related_name = 'title'
         verbose_name = 'Произведение'
         verbose_name_plural = 'Произведения'
+        unique_together = ('name', 'year',)
 
     def __str__(self):
         return self.CONCLUSION_STR.format(
@@ -231,8 +201,8 @@ class GenreTitle(models.Model):
         )
 
 
-class ReviewCommentBaseModel(models.Model):
-    """Базовый класс для Rewiew и Comment"""
+class AuthorTextPubdateBaseModel(models.Model):
+    """Базовый класс для Review и Comment"""
 
     author = models.ForeignKey(
         CustomUser,
@@ -250,12 +220,25 @@ class ReviewCommentBaseModel(models.Model):
         auto_now_add=True,
         db_index=True
     )
+    CONCLUSION_STR = (
+        'Автор: {author}, '
+        'Текст: {text:.20}, '
+        'Дата: {pub_date}, '
+    )
 
     class Meta:
         abstract = True
+        ordering = ('-pub_date',)
+
+    def __str__(self):
+        return self.CONCLUSION_STR.format(
+            author=self.author,
+            text=self.text,
+            pube_date=self.pub_date,
+        )
 
 
-class Review(ReviewCommentBaseModel):
+class Review(AuthorTextPubdateBaseModel):
     """Класс управления данными отзывов к произведениям."""
 
     title = models.ForeignKey(
@@ -302,7 +285,7 @@ class Review(ReviewCommentBaseModel):
         )
 
 
-class Comment(ReviewCommentBaseModel):
+class Comment(AuthorTextPubdateBaseModel):
     """Класс управления данными комментариев к отзывам."""
 
     review = models.ForeignKey(

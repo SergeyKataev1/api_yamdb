@@ -141,3 +141,5 @@ MAX_LENGTH_EMAIL = 254
 MAX_LENGTH_NAME = 256
 # Максимальное количество символов slug
 MAX_LENGTH_SLUG = 50
+# Максимальное количество символов slug
+MAX_CONFIRMATION_CODE = 39

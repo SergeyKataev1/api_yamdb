@@ -2,6 +2,7 @@
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
+from django.db import IntegrityError
 from django.db.models import Avg
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -24,23 +25,27 @@ from .serializers import (CategorySerializer, CommentSerializer,
                           UserSerializer)
 
 
-class CategoryViewSet(
+class NameSlugBaseViewSet(
     mixins.CreateModelMixin,
     mixins.ListModelMixin,
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet
 ):
-    """Класс-вьюсет для Category."""
-    queryset = Category.objects.all()
+    """Абстрактный класс-вьюсет, база для классификации свойств предмета."""
     lookup_field = 'slug'
-    serializer_class = CategorySerializer
     permission_classes = (IsAdminOrReadOnly, )
     pagination_class = PageNumberPagination
     filter_backends = (filters.SearchFilter,)
     search_fields = ('name', )
 
 
-class GenreViewSet(CategoryViewSet):
+class CategoryViewSet(NameSlugBaseViewSet):
+    """Класс-вьюсет для Category."""
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+
+class GenreViewSet(NameSlugBaseViewSet):
     """Класс-вьюсет для Genre."""
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
@@ -53,6 +58,7 @@ class TitleViewSet(ModelViewSet):
     pagination_class = PageNumberPagination
     filter_backends = (DjangoFilterBackend, )
     filterset_class = TitleFilter
+    ordering_fields = ['name', 'year']
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -94,45 +100,45 @@ class CommentViewSet(ModelViewSet):
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
-def register(request):
-    """Создадим функцию для регистрации пользователей"""
+def signup(request):
+    """Регистрация пользователя с получением пин-кода
+    и повторное получение пин-кода"""
     serializer = RegisterDataSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     username = serializer.validated_data['username'],
     email = serializer.validated_data['email']
-    if CustomUser.objects.filter(
-        username=username[0]
-    ).exists() and not CustomUser.objects.filter(email=email).exists():
-        raise ValidationError(
-            'Данный username использует другую почту.'
+    curent_user = CustomUser.objects.filter(username=username[0])
+    curent_email = CustomUser.objects.filter(email=email)
+    try:
+        if curent_user.exists() and not curent_email.exists():
+            raise ValidationError(
+                'Данный username использует другой email.'
+            )
+        if curent_email.exists() and not curent_user.exists():
+            raise ValidationError(
+                'Данный email использует другой username.'
+            )
+        if not CustomUser.objects.filter(
+            username=username[0], email=email
+        ).exists():
+            # Если пары username и email нет в базе то сохранем
+            serializer.save()
+        # Получаем объект CustomUser с данными пользователя
+        user = get_object_or_404(
+            CustomUser,
+            username=serializer.validated_data['username']
         )
-    if CustomUser.objects.filter(
-        email=email
-    ).exists() and not CustomUser.objects.filter(
-        username=username[0]
-    ).exists():
-        raise ValidationError(
-            'Данный email использует другой username.'
+        # Генерируем код подтверждения
+        confirmation_code = default_token_generator.make_token(user)
+        send_mail(
+            subject='YaMDb registration',
+            message=f'Your confirmation code: {confirmation_code}',
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
         )
-    if not CustomUser.objects.filter(
-        username=username[0], email=email
-    ).exists():
-        # Если пары username и email нет в базе то сохранем
-        serializer.save()
-    # Получаем объект CustomUser с данными пользователя
-    user = get_object_or_404(
-        CustomUser,
-        username=serializer.validated_data['username']
-    )
-    # Генерируем код подтверждения
-    confirmation_code = default_token_generator.make_token(user)
-    send_mail(
-        subject='YaMDb registration',
-        message=f'Your confirmation code: {confirmation_code}',
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[user.email],
-    )
-    return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except IntegrityError:
+        raise ValidationError('username или email уже занят')
 
 
 @api_view(['POST'])
