@@ -175,7 +175,10 @@ class Title(models.Model):
         default_related_name = 'titles'
         verbose_name = 'Произведение'
         verbose_name_plural = 'Произведения'
-        constraints = [UniqueConstraint(fields=['name', 'year'], name='unique_name_year_title')]
+        constraints = [
+            UniqueConstraint(
+                fields=['name', 'year'], name='unique_name_year_title'
+            )]
 
     def __str__(self):
         return self.CONCLUSION_STR.format(

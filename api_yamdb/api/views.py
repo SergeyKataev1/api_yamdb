@@ -54,22 +54,12 @@ class GenreViewSet(NameSlugBaseViewSet):
 class TitleViewSet(ModelViewSet):
     """Классы-вьюсет для Title."""
     queryset = Title.objects.annotate(rating=Avg('reviews__score'))
+    # Сортруем queryset по рейтингу
+    queryset = queryset.order_by('-rating')
     permission_classes = (IsAdminOrReadOnly,)
     pagination_class = PageNumberPagination
-    # category - фильтрует по полю slug категории
-    # genre - фильтрует по полю slug жанра
-    # name - фильтрует по названию произведения
-    # year - фильтрует по году
-    # GET http://127.0.0.1:8000/api/v1/titles/?category=movie&year=1994
-    # GET http://127.0.0.1:8000/api/v1/titles/?genre=tale&category=book
-    # !!!!! А нужна настройка набора объектов.
-    # Что это?????
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TitleFilter
-    # настройка сортировки
-    # GET http://127.0.0.1:8000/api/v1/titles/?ordering=-rating # сортировка по убыванию
-    # GET http://127.0.0.1:8000/api/v1/titles/?ordering=-rating # сортировка по возрастанию
-    ordering_fields = ['name', 'year', 'rating']
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -116,33 +106,23 @@ def signup(request):
     и повторное получение пин-кода"""
     serializer = RegisterDataSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
+    users = CustomUser.objects
     username = serializer.validated_data['username']
-    current_user = CustomUser.objects.filter(username=username)
     email = serializer.validated_data['email']
-    current_email = CustomUser.objects.filter(email=email)
-    try:
-        if current_user.exists() and not current_email.exists():
-            raise ValidationError(
-                'Данный username использует другой email.'
-            )
-        if current_email.exists() and not current_user.exists():
-            raise ValidationError(
-                'Данный email использует другой username.'
-            )
-        if not CustomUser.objects.filter(
-                username=username, email=email
-        ).exists():
-            # Если пары username и email нет в базе, то сохраняем
-            serializer.save()
-        # Получаем объект CustomUser с данными пользователя
-        user = get_object_or_404(
-            CustomUser,
-            username=serializer.validated_data['username']
+    current_user = users.filter(username=username)
+    current_email = users.filter(email=email)
+    if current_user.exists() and not current_email.exists():
+        raise ValidationError(
+            'Данный username использует другой email.'
         )
+    if current_email.exists() and not current_user.exists():
+        raise ValidationError(
+            'Данный email использует другой username.'
+        )
+    try:
+        user, _ = users.get_or_create(username=username, email=email)
     except IntegrityError:
         raise ValidationError('username или email уже занят')
-
-    # Генерируем код подтверждения
     confirmation_code = default_token_generator.make_token(user)
     send_mail(
         subject='YaMDb registration',

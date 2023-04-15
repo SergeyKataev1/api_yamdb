@@ -2,10 +2,7 @@
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
-from rest_framework.validators import (
-    UniqueTogetherValidator,
-    UniqueValidator, ValidationError
-)
+from rest_framework.validators import UniqueTogetherValidator, ValidationError
 from reviews.models import Category, Comment, CustomUser, Genre, Review, Title
 from reviews.validators import model_validate_username, model_validate_year
 
@@ -72,19 +69,18 @@ class ReviewSerializer(serializers.ModelSerializer):
     author = serializers.SlugRelatedField(
         read_only=True,
         slug_field='username')
-    title_id = serializers.IntegerField(read_only=True, )
 
     class Meta:
         model = Review
-        fields = ('id', 'author', 'title_id', 'text', 'score', 'pub_date',)
-        read_only_fields = ('id', 'author', 'title', 'pub_date',)
+        fields = ('id', 'author', 'text', 'score', 'pub_date',)
+        read_only_fields = ('id', 'author', 'pub_date',)
 
     def validate(self, data):
         request = self.context['request']
         if request.method == 'POST' and Review.objects.filter(
                 title=get_object_or_404(
                     Title,
-                    pk=self.context['view'].kwargs['title_id']),
+                    pk=self.context['view'].kwargs.get('title_id')),
                 author=request.user
         ).exists():
             raise ValidationError(
@@ -98,36 +94,18 @@ class CommentSerializer(serializers.ModelSerializer):
     author = serializers.SlugRelatedField(
         read_only=True,
         slug_field='username')
-    review_id = serializers.IntegerField(read_only=True, )
 
     class Meta:
         model = Comment
-        fields = ('id', 'author', 'review_id', 'text', 'pub_date',)
-        read_only_fields = ['id', 'author', 'review_id', 'pub_date', ]
+        fields = ('id', 'author', 'text', 'pub_date',)
+        read_only_fields = ['id', 'author', 'pub_date', ]
 
 
 class UserSerializer(serializers.ModelSerializer):
     """Создадим сериалайзер для регистрации пользователей"""
-    username = serializers.CharField(
-        max_length=settings.MAX_LENGTH_USERNAME,
-        required=True,
-        # При переносе валидатора в общий валидатор или валидатор поля возникают ошибки pytest:
-        # >       return Database.Cursor.execute(self, query, params)
-        # E       sqlite3.IntegrityError: UNIQUE constraint failed: reviews_customuser.username
-        # или
-        # E       AssertionError: Проверьте, что при обработке POST-запроса к `/api/v1/users/` содержание поля `username` проверяется на соответствие паттерну, указанному в спецификации: ^[\w.@+-]+\z
-        # E       assert 201 == <HTTPStatus.BAD_REQUEST: 400>
-        # E         +201
-        # E         -<HTTPStatus.BAD_REQUEST: 400>
-        validators=(
-            UniqueValidator(queryset=CustomUser.objects.all()),
-            model_validate_username,
-        ),
-    )
 
-    # def validate_username(self, value):
-    #     model_validate_username(value)
-    #     return value
+    def validate_username(self, value):
+        return model_validate_username(value)
 
     class Meta:
         fields = ("username", "email", "first_name",
@@ -153,16 +131,6 @@ class RegisterDataSerializer(serializers.Serializer):
         max_length=settings.MAX_LENGTH_EMAIL,
         required=True,
     )
-
-    # !!! без этого метода возникает массовая ошибка pytest
-    # > raise NotImplementedError('`create()` must be implemented.')
-    # E NotImplementedError: `create()` must be implemented.
-    def create(self, validated_data):
-        return CustomUser.objects.create(**validated_data)
-
-    class Meta:
-        fields = ("username", "email")
-        model = CustomUser
 
 
 class TokenSerializer(serializers.Serializer):

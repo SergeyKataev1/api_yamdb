@@ -4,11 +4,6 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 
-def forbidden_symbols(username):
-    """Сформировать строку из недопустимых символов в username"""
-    return ''.join(re.split(r'[\w.@+-]+', username))
-
-
 def model_validate_year(value):
     if value > timezone.now().year:
         raise ValidationError(
@@ -20,12 +15,8 @@ def model_validate_year(value):
 def model_validate_username(value):
     if value == 'me':
         raise ValidationError(f'{value} служебное имя!')
-    else:
-        bad_symbols = forbidden_symbols(value)
-        if bad_symbols != '':
-            raise ValidationError(
-                f'Имя пользователя {value} содержит'
-                f' запрещенные символы - {bad_symbols},'
-                f'а должно начинаться с буквы и содержать'
-                ' внутри только буквы, цифры и знаки (@.+-_).'
-            )
+    if not re.match(r'^[\w.@+-]+\Z', value):
+        raise ValidationError(
+            r'в username разрешены только буквы, цифры и знаки: .@+- '
+        )
+    return value
