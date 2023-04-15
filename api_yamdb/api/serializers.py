@@ -2,9 +2,10 @@
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
-from rest_framework.validators import UniqueTogetherValidator, ValidationError
+from rest_framework.validators import (UniqueTogetherValidator,
+                                       UniqueValidator, ValidationError)
 from reviews.models import Category, Comment, CustomUser, Genre, Review, Title
-from reviews.validators import model_validate_username, model_validate_year
+from reviews.validators import validate_username, validate_year
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -32,8 +33,8 @@ class TitleGetSerializer(serializers.ModelSerializer):
     rating = serializers.IntegerField(default=0)
 
     class Meta:
-        fields = ('id', 'name', 'year', 'rating', 'description',
-                  'genre', 'category',)
+        fields = ['id', 'name', 'year', 'rating', 'description',
+                  'genre', 'category']
         model = Title
         read_only_fields = fields
 
@@ -49,7 +50,7 @@ class TitleSerializer(serializers.ModelSerializer):
         queryset=Category.objects.all(),
         slug_field='slug'
     )
-    year = serializers.IntegerField(validators=[model_validate_year, ])
+    year = serializers.IntegerField(validators=[validate_year, ])
 
     class Meta:
         fields = ('id', 'name', 'year', 'description',
@@ -69,18 +70,19 @@ class ReviewSerializer(serializers.ModelSerializer):
     author = serializers.SlugRelatedField(
         read_only=True,
         slug_field='username')
+    title_id = serializers.IntegerField(read_only=True, )
 
     class Meta:
         model = Review
-        fields = ('id', 'author', 'text', 'score', 'pub_date',)
-        read_only_fields = ('id', 'author', 'pub_date',)
+        fields = ('id', 'author', 'title_id', 'text', 'score', 'pub_date',)
+        read_only_fields = ('id', 'author', 'title', 'pub_date',)
 
     def validate(self, data):
         request = self.context['request']
         if request.method == 'POST' and Review.objects.filter(
                 title=get_object_or_404(
-                    Title,
-                    pk=self.context['view'].kwargs.get('title_id')),
+                Title,
+                pk=self.context['view'].kwargs['title_id']),
                 author=request.user
         ).exists():
             raise ValidationError(
@@ -94,22 +96,28 @@ class CommentSerializer(serializers.ModelSerializer):
     author = serializers.SlugRelatedField(
         read_only=True,
         slug_field='username')
+    review_id = serializers.IntegerField(read_only=True, )
 
     class Meta:
         model = Comment
-        fields = ('id', 'author', 'text', 'pub_date',)
-        read_only_fields = ['id', 'author', 'pub_date', ]
+        fields = ('id', 'author', 'review_id', 'text', 'pub_date',)
+        read_only_fields = ['id', 'author', 'review_id', 'pub_date', ]
 
 
 class UserSerializer(serializers.ModelSerializer):
     """Создадим сериалайзер для регистрации пользователей"""
-
-    def validate_username(self, value):
-        return model_validate_username(value)
+    username = serializers.CharField(
+        max_length=settings.MAX_LENGTH_USERNAME,
+        required=True,
+        validators=[
+            UniqueValidator(queryset=CustomUser.objects.all()),
+            validate_username
+        ]
+    )
 
     class Meta:
         fields = ("username", "email", "first_name",
-                  "last_name", "bio", "role",)
+                  "last_name", "bio", "role")
         model = CustomUser
 
 
@@ -125,12 +133,19 @@ class RegisterDataSerializer(serializers.Serializer):
     username = serializers.CharField(
         max_length=settings.MAX_LENGTH_USERNAME,
         required=True,
-        validators=[model_validate_username, ]
+        validators=[validate_username, ]
     )
     email = serializers.EmailField(
         max_length=settings.MAX_LENGTH_EMAIL,
         required=True,
     )
+
+    def create(self, validated_data):
+        return CustomUser.objects.create(**validated_data)
+
+    class Meta:
+        fields = ("username", "email")
+        model = CustomUser
 
 
 class TokenSerializer(serializers.Serializer):
@@ -138,7 +153,7 @@ class TokenSerializer(serializers.Serializer):
     username = serializers.CharField(
         max_length=settings.MAX_LENGTH_USERNAME,
         required=True,
-        validators=(model_validate_username,)
+        validators=[validate_username, ]
     )
     confirmation_code = serializers.CharField(
         required=True, max_length=settings.MAX_CONFIRMATION_CODE

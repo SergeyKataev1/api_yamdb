@@ -55,7 +55,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='customuser',
             name='username',
-            field=models.CharField(help_text='Ваше имя на сайте', max_length=150, unique=True, validators=[reviews.validators.model_validate_username], verbose_name='Имя пользователя'),
+            field=models.CharField(help_text='Ваше имя на сайте', max_length=150, unique=True, validators=[reviews.validators.validate_username], verbose_name='Имя пользователя'),
         ),
         migrations.AlterField(
             model_name='genre',

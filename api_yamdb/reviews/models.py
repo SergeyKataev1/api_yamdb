@@ -3,9 +3,8 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import UniqueConstraint
 
-from .validators import model_validate_username, model_validate_year
+from .validators import validate_username, validate_year
 
 
 class CustomUser(AbstractUser):
@@ -18,12 +17,13 @@ class CustomUser(AbstractUser):
         (USER, 'Пользователь'),
         (MODERATOR, 'Модератор'),
     ]
+    MAX_LEN_ROLE = max(len(role[0]) for role in CHOICES_ROLE)
     username = models.CharField(
         max_length=settings.MAX_LENGTH_USERNAME,
         verbose_name='Имя пользователя',
         help_text='Ваше имя на сайте',
         unique=True,
-        validators=[model_validate_username],
+        validators=[validate_username],
     )
     email = models.EmailField(
         max_length=settings.MAX_LENGTH_EMAIL,
@@ -32,7 +32,7 @@ class CustomUser(AbstractUser):
     )
     role = models.CharField(
         verbose_name='статус',
-        max_length=max(len(role) for role, _ in CHOICES_ROLE),
+        max_length=MAX_LEN_ROLE,
         choices=CHOICES_ROLE,
         default=USER,
     )
@@ -141,7 +141,7 @@ class Title(models.Model):
     year = models.IntegerField(
         verbose_name='Год выпуска',
         help_text='Укажите год выпуска',
-        validators=[model_validate_year],
+        validators=[validate_year],
         blank=False
     )
     description = models.TextField(
@@ -172,13 +172,10 @@ class Title(models.Model):
     )
 
     class Meta:
-        default_related_name = 'titles'
+        default_related_name = 'title'
         verbose_name = 'Произведение'
         verbose_name_plural = 'Произведения'
-        constraints = [
-            UniqueConstraint(
-                fields=['name', 'year'], name='unique_name_year_title'
-            )]
+        unique_together = ('name', 'year',)
 
     def __str__(self):
         return self.CONCLUSION_STR.format(
@@ -248,8 +245,8 @@ class Review(AuthorTextPubdateBaseModel):
         Title,
         verbose_name='Произведение для отзыва',
         on_delete=models.CASCADE,
-        blank=False
-    )
+        related_name='reviews',
+        blank=False)
     score = models.PositiveSmallIntegerField(
         verbose_name='Оценка',
         help_text='Оцените произведение',
@@ -277,7 +274,6 @@ class Review(AuthorTextPubdateBaseModel):
                 name='unique_title',
             )
         ]
-        ordering = ('-pub_date',)
 
     def __str__(self):
         return self.CONCLUSION_STR.format(
@@ -296,7 +292,8 @@ class Comment(AuthorTextPubdateBaseModel):
         Review,
         verbose_name='Комментируемый отзыв',
         on_delete=models.CASCADE,
-        blank=False
+        blank=False,
+        related_name='comments'
     )
 
     CONCLUSION_STR = (
@@ -310,7 +307,6 @@ class Comment(AuthorTextPubdateBaseModel):
         default_related_name = 'comments'
         verbose_name = 'Комментарий'
         verbose_name_plural = 'Комментарии'
-        ordering = ('-pub_date',)
 
     def __str__(self):
         return self.CONCLUSION_STR.format(
