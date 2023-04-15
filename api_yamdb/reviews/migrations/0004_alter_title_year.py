@@ -14,6 +14,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='title',
             name='year',
-            field=models.IntegerField(help_text='Укажите год выпуска', validators=[reviews.validators.validate_year], verbose_name='Год выпуска'),
+            field=models.IntegerField(help_text='Укажите год выпуска', validators=[reviews.validators.model_validate_year], verbose_name='Год выпуска'),
         ),
     ]
