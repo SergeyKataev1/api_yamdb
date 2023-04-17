@@ -58,7 +58,16 @@ api_yamdb - это учебный проект курса "backend-python" от 
     ```
     cd api_yamdb
     ```
-7. Выполнить миграции
+7. Создать миграции
+   - Windows
+    ```
+    python manage.py makemigrations
+    ```
+   - Linux и macOS
+    ```
+    python3 manage.py makemigrations
+    ```
+8. Выполнить миграции
    - Windows
     ```
     python manage.py migrate
@@ -67,7 +76,7 @@ api_yamdb - это учебный проект курса "backend-python" от 
     ```
     python3 manage.py migrate
     ```
-8. Запустить проект
+9. Запустить проект
    - Windows
     ```
     python manage.py runserver

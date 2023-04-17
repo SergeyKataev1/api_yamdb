@@ -94,14 +94,17 @@ def main():
         Скрипт выполняет загрузку данных из таблиц CSV в базу данных
         приложения API_YAMDB.
     """
-    print('Скрипт data_load.py выполняет загрузку данных из таблиц CSV в базу данных приложения API_YAMDB.')
+    print(
+        'Скрипт data_load.py выполняет загрузку данных из таблиц CSV'
+        ' в базу данных приложения API_YAMDB.'
+    )
     data_clear = input('Выполнить очистку базы данных?(Y/N)')
-    if data_clear == "Y":
+    if data_clear == "Y" or 'y':
         print("Очистка данных...", end=' ')
         clear_all_db()
         print("выполнена!")
     data_add = input('Начать процесс загрузки?(Y/N)')
-    if data_add != "Y":
+    if data_add not in ("Y", 'y'):
         return
     # Загрузить список таблиц для обработки
     try:

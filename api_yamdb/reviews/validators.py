@@ -17,7 +17,8 @@ def model_validate_username(value):
         raise ValidationError(f'{value} служебное имя!')
     if not re.match(r'^[\w.@+-]+\Z', value):
         raise ValidationError(
-            'в username используются недопустимые символы: {bad_symbol}'.format(
+            'в username используются недопустимые '
+            'символы: {bad_symbol}'.format(
                 bad_symbol=''.join(re.split(r'[\w.@+-]+', value))
             )
         )

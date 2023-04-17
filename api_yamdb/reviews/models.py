@@ -135,7 +135,6 @@ class Title(models.Model):
         max_length=settings.MAX_LENGTH_NAME,
         verbose_name='Названием',
         help_text='Укажите название произведения',
-        # unique=True,
         blank=False,
     )
     year = models.IntegerField(
