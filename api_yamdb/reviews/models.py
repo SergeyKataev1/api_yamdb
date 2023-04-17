@@ -260,14 +260,12 @@ class Review(AuthorTextPubdateBaseModel):
         ]
     )
     CONCLUSION_STR = (
+        'Отзыв. {review}, '
         'Произведение: {title}, '
-        'Автор отзыва: {author}, '
-        'Отзыв: {text:.20}, '
         'Оценка: {score}, '
-        'Дата отзыва: {pub_date}, '
     )
 
-    class Meta:
+    class Meta(AuthorTextPubdateBaseModel.Meta):
         default_related_name = 'reviews'
         verbose_name = 'Отзыв'
         verbose_name_plural = 'Отзывы'
@@ -277,15 +275,12 @@ class Review(AuthorTextPubdateBaseModel):
                 name='unique_title',
             )
         ]
-        ordering = ('-pub_date',)
 
     def __str__(self):
         return self.CONCLUSION_STR.format(
-            author=self.author,
+            review=super().__str__(),
             title=self.title,
-            text=self.text,
             scope=self.score,
-            pube_date=self.pub_date,
         )
 
 
@@ -300,22 +295,17 @@ class Comment(AuthorTextPubdateBaseModel):
     )
 
     CONCLUSION_STR = (
-        'Автор комментария: {author}, '
+        'Комментарий. {comment}, '
         'Комментируемый отзыв: {review}'
-        'Комментарий: {text:.20}, '
-        'Дата комментария: {pub_date}, '
     )
 
-    class Meta:
+    class Meta(AuthorTextPubdateBaseModel.Meta):
         default_related_name = 'comments'
         verbose_name = 'Комментарий'
         verbose_name_plural = 'Комментарии'
-        ordering = ('-pub_date',)
 
     def __str__(self):
         return self.CONCLUSION_STR.format(
-            author=self.author,
-            rewiew=self.review,
-            text=self.text,
-            pube_date=self.pub_date,
+            comment=super().__str__(),
+            title=self.review
         )

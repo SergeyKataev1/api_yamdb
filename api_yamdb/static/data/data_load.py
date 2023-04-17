@@ -2,20 +2,16 @@
 Приложение data_load.py - консольное приложение, предназначенное для
 автоматизации загрузки в приложение Yamdb начальных данных из файлов CSV.
 """
-import os
-from dotenv import load_dotenv
-import click
 import csv
 import sqlite3
 
-load_dotenv()
-DEFAULT_CSV_PATH = os.getenv('DEFAULT_CSV_PATH')
-DEFAULT_SQL_PATH = os.getenv('DEFAULT_SQL_PATH')
+DEFAULT_CSV_PATH = ""
+DEFAULT_SQL_PATH = "../../db.sqlite3"
 
 tables_queue = {
-    # "users.csv": "reviews_customuser",
-    # "category.csv": "reviews_category",
-    # "genre.csv": "reviews_genre",
+    "users.csv": "reviews_customuser",
+    "category.csv": "reviews_category",
+    "genre.csv": "reviews_genre",
     "titles.csv": "reviews_title",
     "genre_title.csv": "reviews_genretitle",
     "review.csv": "reviews_review",
@@ -90,57 +86,36 @@ def data_save(table_name, csv_file_data):
     sql_insert = (f'INSERT INTO {table_name} ({fields_names_template}) '
                   f'VALUES({values_template});')
     cur.executemany(sql_insert, insert_data)
-    click.echo(
-        f" - запрос подготовлен: {sql_insert} с данными {insert_data}")
     conn.commit()
 
 
-@click.command()
-@click.option('--clear', 'data_prepared', default=True, flag_value='clear',
-              help='Выполнить сброс базы данных '
-                   'перед загрузкой (по умолчанию).')
-@click.option('--add', 'data_prepared',
-              flag_value='add',
-              help='Данные догружаются к имеющейся базе данных.')
-@click.option('--debug', 'show_msg', flag_value='debug',
-              help='Отображается процесс загрузки данных.')
-@click.option('--hide', 'show_msg', flag_value='hide', default=True,
-              help='Процесс загрузки данных не отображается (по умолчанию).')
-@click.help_option('--help', help='Показать это сообщение и выйти.')
-def main(data_prepared, show_msg):
+def main():
     """
         Скрипт выполняет загрузку данных из таблиц CSV в базу данных
         приложения API_YAMDB.
-        Пути к файлам данных указываются в файле .env
     """
-    if data_prepared == "clear":
-        click.confirm("Вы уверены, что необходимо очистить данные?")
-        click.echo("Очистка данных...", nl=False)
+    print('Скрипт data_load.py выполняет загрузку данных из таблиц CSV в базу данных приложения API_YAMDB.')
+    data_clear = input('Выполнить очистку базы данных?(Y/N)')
+    if data_clear == "Y":
+        print("Очистка данных...", end=' ')
         clear_all_db()
-        click.echo("...выполнена!")
+        print("выполнена!")
+    data_add = input('Начать процесс загрузки?(Y/N)')
+    if data_add != "Y":
+        return
     # Загрузить список таблиц для обработки
     try:
+        print("Загрузка данных...", end=' ')
         csv_list = list(tables_queue.keys())
-        if show_msg == 'debug':
-            click.echo("Загрузка данных...")
-        else:
-            click.echo("Загрузка данных...", nl=False)
         for csv_file_name in csv_list:
             csv_file_data = load_csv(f"{DEFAULT_CSV_PATH}{csv_file_name}")
-            if show_msg == 'debug':
-                click.echo(f" - загружен файл: {csv_file_name}")
-                try:
-                    data_save(tables_queue[csv_file_name], csv_file_data)
-                    if show_msg == 'debug':
-                        click.echo(
-                            f" - сохраняем данные "
-                            f"в {tables_queue[csv_file_name]}")
-                except sqlite3.Error as err_msg:
-                    click.echo(
-                        f"Выполнение скрипта прервано! Ошибка: {err_msg}",
-                        err=True)
-                    raise
-        click.echo("...выполнена!")
+            try:
+                data_save(tables_queue[csv_file_name], csv_file_data)
+            except sqlite3.Error as err_msg:
+                print()
+                print(f"Выполнение скрипта прервано! Ошибка: {err_msg}")
+                raise
+        print("выполнена!")
     finally:
         # Закрыть соединение с базой данных
         conn.close()

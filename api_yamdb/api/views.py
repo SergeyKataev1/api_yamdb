@@ -3,7 +3,7 @@ from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.db import IntegrityError
-from django.db.models import Avg
+from django.db.models import Avg, Q
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, permissions, status, viewsets
@@ -55,14 +55,18 @@ class TitleViewSet(ModelViewSet):
     """Классы-вьюсет для Title."""
     queryset = Title.objects.annotate(rating=Avg('reviews__score'))
     # Сортруем queryset по рейтингу
-    queryset = queryset.order_by('-rating')
     permission_classes = (IsAdminOrReadOnly,)
     pagination_class = PageNumberPagination
-    filter_backends = (DjangoFilterBackend,)
+    filter_backends = (
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter
+    )
     filterset_class = TitleFilter
+    ordering_fields = ('name', 'year', 'genre', 'category', 'rating',)
 
     def get_serializer_class(self):
-        if self.request.method == 'GET':
+        if self.request.method in permissions.SAFE_METHODS:
             return TitleGetSerializer
         return TitleSerializer
 
@@ -106,23 +110,17 @@ def signup(request):
     и повторное получение пин-кода"""
     serializer = RegisterDataSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    users = CustomUser.objects
     username = serializer.validated_data['username']
     email = serializer.validated_data['email']
-    current_user = users.filter(username=username)
-    current_email = users.filter(email=email)
-    if current_user.exists() and not current_email.exists():
-        raise ValidationError(
-            'Данный username использует другой email.'
-        )
-    if current_email.exists() and not current_user.exists():
-        raise ValidationError(
-            'Данный email использует другой username.'
-        )
     try:
-        user, _ = users.get_or_create(username=username, email=email)
+        user, _ = CustomUser.objects.get_or_create(
+            username=username, email=email
+        )
     except IntegrityError:
-        raise ValidationError('username или email уже занят')
+        raise ValidationError(
+            f'Имя {username} или адрес электронной почты '
+            f'{email} уже использовались для регистрации пользователей.'
+        )
     confirmation_code = default_token_generator.make_token(user)
     send_mail(
         subject='YaMDb registration',
