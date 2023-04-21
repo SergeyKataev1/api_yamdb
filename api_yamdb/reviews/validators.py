@@ -15,11 +15,10 @@ def model_validate_year(value):
 def model_validate_username(value):
     if value == 'me':
         raise ValidationError(f'{value} служебное имя!')
-    if not re.match(r'^[\w.@+-]+\Z', value):
+    bad_symbol = ''.join(set(''.join(re.sub(r'[\w.@+-]+', '', value))))
+    if bad_symbol != '':
         raise ValidationError(
-            'в username используются недопустимые '
-            'символы: {bad_symbol}'.format(
-                bad_symbol=''.join(re.split(r'[\w.@+-]+', value))
-            )
+            f'в username используются недопустимые '
+            f'символы: {bad_symbol}'
         )
     return value
